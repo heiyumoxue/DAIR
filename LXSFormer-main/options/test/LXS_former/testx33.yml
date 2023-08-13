@@ -1,0 +1,82 @@
+name: 2023-7-1-LXS_former_x3_test
+model_type: SRModel
+scale: 3
+num_gpu: 2  # set num_gpu: 0 for cpu mode
+manual_seed: 0
+
+datasets:
+  test_1:  # the 1st test dataset
+    name: Set5
+    type: PairedImageDataset
+    dataroot_gt: datasets/5/Set5/GTmod12
+    dataroot_lq: datasets/5/Set5/LRbicx3
+    io_backend:
+      type: disk
+  test_2:  # the 2nd test dataset
+    name: Set14
+    type: PairedImageDataset
+    dataroot_gt: datasets/5/Set14/GTmod12
+    dataroot_lq: datasets/5/Set14/LRbicx3
+    io_backend:
+      type: disk
+  test_3:
+    name: BSDS100
+    type: PairedImageDataset
+    dataroot_gt: datasets/5/BSDS100/GTmod12
+    dataroot_lq: datasets/5/BSDS100/LRbicx3
+    io_backend:
+      type: disk
+  test_4:
+    name: urban100
+    type: PairedImageDataset
+    dataroot_gt: datasets/5/urban100/GTmod12
+    dataroot_lq: datasets/5/urban100/LRbicx3
+    io_backend:
+      type: disk
+  test_5:
+    name: manga109
+    type: PairedImageDataset
+    dataroot_gt: datasets/5/manga109/GTmod12
+    dataroot_lq: datasets/5/manga109/LRbicx3
+    io_backend:
+      type: disk
+
+
+# network structures
+network_g:
+  type: LXS_former
+  in_nc: 3
+  out_nc: 3
+  nf: 100
+  upscale: 3
+
+
+
+path:
+  pretrain_network_g: C:/Users/21083/Desktop/super/LXS_Former_Model/experiments/x3/x3.pth
+  param_key_g: params_ema
+  strict_load_g: true
+
+# validation settings
+val:
+  save_img: true
+  suffix: ~  # add suffix to saved images, if None, use exp name
+
+  metrics:
+    psnr: # metric name, can be arbitrary
+      type: calculate_psnr
+      crop_border: 3
+      test_y_channel: ture
+      better: higher
+    ssim:
+      type: calculate_ssim
+      crop_border: 3
+      test_y_channel: ture
+      better: higher
+
+
+
+
+#  python basicsr/train.py -opt options/train/LXS_former/trainx34.yml
+#  python basicsr/test.py -opt options/test/LXS_former/testx33.yml
+

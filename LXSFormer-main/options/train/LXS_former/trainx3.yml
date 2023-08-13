@@ -1,0 +1,150 @@
+# general settings 通用设置
+name: 2023-8-9-LXS_former_x3
+model_type: SRModel
+scale: 3
+num_gpu: 1  # set num_gpu: 0 for cpu mode 设置GPU的数量 设置为0就用CPU
+manual_seed: 10  # 随机种子设定
+
+# dataset and data loader settings   数据集和数据读取的设置
+datasets:
+  train:
+    name: DIV2K
+    type: PairedImageDataset  #配对数据集
+    dataroot_gt: /home/oem/data/dataset/DIV2K/DIV2K_train_HR_sub
+    dataroot_lq: /home/oem/data/dataset/DIV2K/DIV2K_train_BIC_sub/X3
+    # (for lmdb)
+    # dataroot_gt: datasets/DIV2K/DIV2K_train_HR_sub.lmdb
+    # dataroot_lq: datasets/DIV2K/DIV2K_train_LR_bicubic_X3_sub.lmdb
+    filename_tmpl: '{}x3'
+    io_backend:
+      type: disk    # disk 表示直接从硬盘读取（有3种方式）
+      # (for lmdb)
+      # type: lmdb
+
+    gt_size: 144  # 3倍上采样的时候size要改成144，不然除不尽会报错  scale*48 or scale*64
+    use_hflip: true
+    use_rot: true
+
+    # data loader
+    use_shuffle: true
+    num_worker_per_gpu: 8  # 每一个GPU的data loader读取进程数目 原先是6
+    batch_size_per_gpu: 64 # # 总共的训练batch size 这里设置成64
+    dataset_enlarge_ratio: 1 # 扩大dataset的倍率. 比如数据集有15张图, 则会重复这些图片100次, 这样一个epoch下来, 能够读取1500张图
+    prefetch_mode: ~  # (事实上是重复读的). 它经常用来加速data loader, 因为在有的机器上, 一个epoch结束, 会重启进程, 往往会很慢
+
+  val:
+    name: Set5
+    type: PairedImageDataset
+    dataroot_gt: datasets/5/Set5/GTmod12
+    dataroot_lq: datasets/5/Set5/LRbicx3
+    io_backend:
+      type: disk
+
+  val_2:
+    name: Set14
+    type: PairedImageDataset
+    dataroot_gt: datasets/5/Set14/GTmod12
+    dataroot_lq: datasets/5/Set14/LRbicx3
+    io_backend:
+      type: disk
+
+  val_3:
+    name: BSDS100
+    type: PairedImageDataset
+    dataroot_gt: datasets/5/BSDS100/GTmod12
+    dataroot_lq: datasets/5/BSDS100/LRbicx3
+    io_backend:
+      type: disk
+
+  val_4:
+    name: Urban100
+    type: PairedImageDataset
+    dataroot_gt: datasets/5/Urban100/GTmod12
+    dataroot_lq: datasets/5/Urban100/LRbicx3
+    io_backend:
+      type: disk
+
+  val_5:
+    name: manga109
+    type: PairedImageDataset
+    dataroot_gt: datasets/5/manga109/GTmod12
+    dataroot_lq: datasets/5/manga109/LRbicx3
+    io_backend:
+      type: disk
+
+# network structures 网络结构
+network_g:
+  type: LXS_former #我们模型的名称
+  in_nc: 3
+  out_nc: 3
+  nf: 100 #特征图通道
+  upscale: 3
+
+# path
+path:
+  pretrain_network_g: ~
+  strict_load_g: true
+  resume_state: ~
+
+
+#开启了EMA后，保存的模型会有两个字段：params和params_ema，其中params_ema
+#就是EMA保存的模型。在测试或者推理的时候，我们要留意加载的到底是params还是
+#params_ema，这个在yml文件中，一般通过 param_key_g: params_ema来指定。
+#在这里训练文件是开启了EMA，所以在测试文件(77行)需指定param_key_g: params_ema
+#否则会出现测试和训练过程中validation不匹配的问题
+# training settings
+train:
+  ema_decay: 0.999   # 开启EMA(移动平均指数), 滑动系数为 0.999
+  optim_g:           #
+    type: Adam
+    lr: !!float 5e-4  # 学习率
+    weight_decay: 0
+    betas: [0.9, 0.99]
+
+  scheduler:
+    type: MultiStepLR
+    milestones: [200000]
+    gamma: 0.5
+
+  total_iter: 400000  # 总共的训练迭代次数 1000 epoch
+  warmup_iter: -1  # no warm up   热身迭代的次数, 如是-1, 表示没有热身迭代
+
+  # losses
+  pixel_opt:
+    type: L1Loss  # loss类型, 一般为在`basicsr/models/losses`目录下定义的损失类名
+    loss_weight: 1.0  # loss 权重
+    reduction: mean  # loss reduction减少损失方式（平均）
+
+# validation settings 验证集设置-验证频率为5000验证一次  验证的时候不保存图像
+val:
+  val_freq: !!float 5e3 #每5000次迭代就验证1次
+  save_img: false #是否需要在验证的时候保存图像（否）（是）
+  #验证时使用的metric
+  metrics:
+    psnr: # metric name, can be arbitrary 度量名称，可以是任意的
+      type: calculate_psnr #计算PSBR
+      crop_border: 3 # 计算metric时, 是否需要crop border裁剪边框
+      test_y_channel: True  # 是否转成在Y(CbCr)空间上计算metric（Ture-是）（false-否）
+    ssim:
+      type: calculate_ssim  #计算SSIM
+      crop_border: 3 # 计算metric时, 是否需要crop border裁剪边框
+      test_y_channel: true # 是否转成在Y(CbCr)空间上计算metric（Ture-是）（false-否）
+
+# logging settings 记录设置
+logger:
+  print_freq: 100  # 屏幕上打印的logger频率
+  save_checkpoint_freq: !!float 5e3  # 保存checkpoint(检查点)的频率 迭代5000次保存1次
+  use_tb_logger: true # 是否使用tensorboard logger
+  wandb: # 是否使用wandb logger, 目前wandb只是同步tensorboard的内容, 因此要使用wandb, 必须也同时使用tensorboard
+    project: ~ # wandb的project. 默认是 None, 即不使用wandb.
+    resume_id: ~ # 这里使用了 basicsr wandb project: https://app.wandb.ai/xintao/basicsr
+
+# dist training settings-分布式训练设置
+dist_params:
+  backend: nccl
+  port: 29500
+
+#不要用pip安装basicsr，  直接运行python setup.py develop
+#训练命令： python basicsr/train.py -opt options/train/LXS_former/trainx3.yml --auto_resume
+#测试指令： python basicsr/test.py -opt options/test/LXS_former/testx3.yml
+# 数据集的HR和LR名字要一一对应，否则找不到对应的路径，用已有的程序下采样得到的图片会有后缀，记得改掉
